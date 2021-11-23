@@ -8,6 +8,7 @@ const Authors = (props) => {
   if (!props.show) {
     return null
   }
+  
   if (result.loading)  {
     return <div>loading...</div>
   }

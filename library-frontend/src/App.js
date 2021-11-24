@@ -6,6 +6,7 @@ import Books from './components/Books'
 import NewBook from './components/NewBook'
 import UpdateAuthor from './components/UpdateAuthor'
 import LoginForm from './components/LoginForm'
+import Recommend from './components/Recommend'
 
 
 const Notify = ({ errorMessage }) => {
@@ -20,10 +21,23 @@ const Notify = ({ errorMessage }) => {
   )
 }
 
+let triedToFetch = false
+
 const App = () => {
   const [page, setPage] = useState('authors')
   const [errorMessage, setErrorMessage] = useState(null)
   const [token, setToken] = useState(null)
+
+
+  if (!token && !triedToFetch) {
+    try {
+          triedToFetch = true
+      const token = localStorage.getItem('library-user-token')
+      setToken(token)
+    } catch {
+      console.log('no token')
+    }
+  }
 
   const client = useApolloClient()
 
@@ -35,9 +49,9 @@ const App = () => {
   }
 
   const logout = () => {
-    setToken(null)
     localStorage.clear()
     client.resetStore()
+    setToken(null)
   }
 
   return (
@@ -48,6 +62,7 @@ const App = () => {
         {token && <>
           <button onClick={() => setPage('add')}>add book</button>
           <button onClick={() => setPage('update-author')}>update author</button>
+          <button onClick={() => setPage('recommend')}>recommend</button>
           <button onClick={() => logout()}>logout</button>
         </>}
         {!token && <button onClick={() => setPage('login')}>login</button>}
@@ -71,6 +86,11 @@ const App = () => {
       <UpdateAuthor
         show={page === 'update-author'}
         setPage={setPage}
+        setError={notify}
+      />
+
+      <Recommend
+        show={page === 'recommend'}
         setError={notify}
       />
 

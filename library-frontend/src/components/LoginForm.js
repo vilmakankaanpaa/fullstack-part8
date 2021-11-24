@@ -17,8 +17,8 @@ const LoginForm = ({ setError, setToken, setPage, show }) => {
       const token = data.login.value
       setToken(token)
       localStorage.setItem('library-user-token', token)
-    }
-  }, [data])
+    } // eslint-disable-next-line
+  }, [data]) 
 
   if (!show) {
     return null

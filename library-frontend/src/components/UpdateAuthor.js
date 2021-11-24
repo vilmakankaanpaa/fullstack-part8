@@ -2,11 +2,14 @@ import React, { useState } from 'react'
 import { useMutation, useQuery } from '@apollo/client'
 import { ALL_AUTHORS, ALL_BOOKS, EDIT_AUTHOR } from '../queries'
 
-const SetBirthYear = (props) => {
+const SetBirthYear = ({ setError, setPage, show }) => {
   const [name, setName] = useState('')
   const [born, setBorn] = useState('')
 
   const [ editAuthor ] = useMutation(EDIT_AUTHOR, {
+    onError: (error) => {
+      setError(error.graphQLErrors[0].message)
+    },
     refetchQueries: [  {query: ALL_BOOKS}, {query: ALL_AUTHORS} ]
   })
 
@@ -16,7 +19,7 @@ const SetBirthYear = (props) => {
   }
   const authors = result.data.allAuthors
 
-  if (!props.show) {
+  if (!show) {
     return null
   }
 
@@ -29,6 +32,7 @@ const SetBirthYear = (props) => {
 
     setName('')
     setBorn('')
+    setPage('authors')
   }
 
   return (

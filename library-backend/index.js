@@ -1,4 +1,4 @@
-const { ApolloServer, UserInputError, gql } = require('apollo-server')
+const { ApolloServer, UserInputError, AuthenticationError, gql } = require('apollo-server')
 const mongoose = require('mongoose')
 const Book = require('./models/book')
 const Author = require('./models/author')
@@ -228,7 +228,7 @@ const resolvers = {
       }
       return book
     },
-    editAuthor: async (root, args) => {
+    editAuthor: async (root, args, context) => {
       const currentUser = context.currentUser
 
       if (!currentUser) {
@@ -270,8 +270,10 @@ const resolvers = {
         username: user.username,
         id: user._id,
       }
+
+      const token = await jwt.sign(userForToken, JWT_SECRET)
   
-      return { value: jwt.sign(userForToken, JWT_SECRET) }
+      return { value: token }
     },
   }
 }

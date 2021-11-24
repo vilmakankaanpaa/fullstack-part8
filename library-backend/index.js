@@ -161,21 +161,28 @@ const resolvers = {
     allBooks: async (root, args) => {
       const { author, genre } = args
 
-      if (!author && !genre) {
-        return await Book.find({})
+      if (author && genre) {
+        const foundAuthor = await Author.findOne({ name: args.author })
+        return Book.find({author: foundAuthor, genres: {$in: genre}}).populate('author')
       }
 
-      // if (!genre)
-      //   return books.filter(b => b.author === author)
+      if (author) {
+        const foundAuthor = await Author.findOne({ name: args.author })
+        if (!foundAuthor) {
+          return null
+        }
+        return await Book.find({ author: foundAuthor }).populate('author')
+      }  
 
-      if (!author)
-        return await Book.find({ genres: {$in: genre} })
+      if (genre) {
+        return await Book.find({ genres: {$in: genre} }).populate('author')
+      }
 
-      // return books.filter(b => b.author === args.author).filter(b => b.genres.includes(genre))
+      return await Book.find({}).populate('author')
       
     },
     allAuthors: async () => await Author.find({}),
-    me: (root, args, context) => {
+    me: (context) => {
       console.log(context)
       return context.currentUser
     },
@@ -227,7 +234,7 @@ const resolvers = {
       if (!currentUser) {
         throw new AuthenticationError("not authenticated")
       }
-      
+
       const author = await Author.findOne({ name: args.name })
       if (!author) {
         return null

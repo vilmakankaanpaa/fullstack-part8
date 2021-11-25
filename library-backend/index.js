@@ -3,6 +3,12 @@ const { ApolloServerPluginDrainHttpServer } = require('apollo-server-core')
 const express = require('express')
 const http = require('http')
 
+const { execute, subscribe } = require('graphql')
+const { SubscriptionServer } = require('subscriptions-transport-ws')
+const { makeExecutableSchema } = require ('@graphql-tools/schema')
+const { PubSub } = require('graphql-subscriptions')
+const pubsub = new PubSub()
+
 const mongoose = require('mongoose')
 const Book = require('./models/book')
 const Author = require('./models/author')
@@ -163,6 +169,9 @@ const resolvers = {
           invalidArgs: args,
         })
       }
+
+      pubsub.publish('BOOK_ADDED', { bookAdded: book })
+
       return book
     },
     editAuthor: async (root, args, context) => {
@@ -213,7 +222,12 @@ const resolvers = {
   
       return { value: token }
     },
-  }
+  },
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator(['BOOK_ADDED'])
+    },
+  },
 }
 
 // const server = new ApolloServer({
@@ -251,13 +265,40 @@ async function startApolloServer() {
   const app = express()
   const httpServer = http.createServer(app)
 
+  const schema = makeExecutableSchema({ typeDefs, resolvers })
+
+  const subscriptionServer = SubscriptionServer.create({
+    // This is the `schema` we just created.
+    schema,
+    // These are imported from `graphql`.
+    execute,
+    subscribe,
+  }, {
+      // This is the `httpServer` we created in a previous step.
+      server: httpServer,
+      // Pass a different path here if your ApolloServer serves at
+      // a different path.
+      path: '/',
+  })
+
   // Same ApolloServer initialization as before, plus the drain plugin.
   const server = new ApolloServer({
-    typeDefs,
-    resolvers,
+    schema,
     context,
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      {
+        async serverWillStart() {
+          return {
+            async drainServer() {
+              subscriptionServer.close();
+            }
+          };
+        }
+      }
+    ],
   });
+  
 
   // More required logic for integrating with Express
   await server.start();

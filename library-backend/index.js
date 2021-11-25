@@ -1,4 +1,8 @@
-const { ApolloServer, UserInputError, AuthenticationError, gql } = require('apollo-server')
+const { ApolloServer, UserInputError, AuthenticationError, gql } = require('apollo-server-express')
+const { ApolloServerPluginDrainHttpServer } = require('apollo-server-core')
+const express = require('express')
+const http = require('http')
+
 const mongoose = require('mongoose')
 const Book = require('./models/book')
 const Author = require('./models/author')
@@ -74,6 +78,10 @@ const typeDefs = gql`
       password: String!
     ): Token
   }
+
+  type Subscription {
+    bookAdded: Book!
+  }   
 `
 
 const resolvers = {
@@ -208,21 +216,63 @@ const resolvers = {
   }
 }
 
-const server = new ApolloServer({
-  typeDefs,
-  resolvers,
-  context: async ({ req }) => {
-    const auth = req ? req.headers.authorization : null
-    if (auth && auth.toLowerCase().startsWith('bearer ')) {
-      const decodedToken = jwt.verify(
-        auth.substring(7), JWT_SECRET
-      )
-      const currentUser = await User.findById(decodedToken.id)
-      return { currentUser }
-    }
-  }
-})
+// const server = new ApolloServer({
+//   typeDefs,
+//   resolvers,
+//   context: async ({ req }) => {
+//     const auth = req ? req.headers.authorization : null
+//     if (auth && auth.toLowerCase().startsWith('bearer ')) {
+//       const decodedToken = jwt.verify(
+//         auth.substring(7), JWT_SECRET
+//       )
+//       const currentUser = await User.findById(decodedToken.id)
+//       return { currentUser }
+//     }
+//   }
+// })
 
-server.listen().then(({ url }) => {
-  console.log(`Server ready at ${url}`)
-})
+// server.listen().then(({ url }) => {
+//   console.log(`Server ready at ${url}`)
+// })
+
+const context = async ({ req }) => {
+  const auth = req ? req.headers.authorization : null
+  if (auth && auth.toLowerCase().startsWith('bearer ')) {
+    const decodedToken = jwt.verify(
+      auth.substring(7), JWT_SECRET
+    )
+    const currentUser = await User.findById(decodedToken.id)
+    return { currentUser }
+  }
+}
+
+async function startApolloServer() {
+  // Required logic for integrating with Express
+  const app = express()
+  const httpServer = http.createServer(app)
+
+  // Same ApolloServer initialization as before, plus the drain plugin.
+  const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context,
+    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+  });
+
+  // More required logic for integrating with Express
+  await server.start();
+  server.applyMiddleware({
+    app,
+
+    // By default, apollo-server hosts its GraphQL endpoint at the
+    // server root. However, *other* Apollo Server packages host it at
+    // /graphql. Optionally provide this to match apollo-server.
+    path: '/'
+  });
+
+  // Modified server startup
+  new Promise(resolve => httpServer.listen({ port: 4000 }, resolve))
+  console.log(`🚀 Server ready at http://localhost:4000${server.graphqlPath}`)
+}
+
+startApolloServer()
